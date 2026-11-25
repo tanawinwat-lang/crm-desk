@@ -1,0 +1,485 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // ==================== GLOBAL PRIMITIVES ====================
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isSignedIn() {
+      return request.auth != null && request.auth.token.email_verified == true;
+    }
+
+    function isBootstrappedAdmin() {
+      return isSignedIn() && request.auth.token.email == 'tanawin.wat@gmail.com';
+    }
+
+    function isAdmin() {
+      return isBootstrappedAdmin() ||
+        (isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)));
+    }
+
+    function userDocExists() {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function userDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isActiveUser() {
+      return isSignedIn() && userDocExists() && userDoc().is_active == true;
+    }
+
+    function isTL() {
+      return isActiveUser() && userDoc().role == 'tl';
+    }
+
+    function isValidRole(role) {
+      return role in ['admin', 'tl', 'agent'];
+    }
+
+    function isValidCaseStatus(status) {
+      return status in ['todo', 'in_progress', 'done'];
+    }
+
+    function isValidAckStage(stage) {
+      return stage in ['pre_30m', 'due_reached'];
+    }
+
+    function isValidAckLevel(level) {
+      return level in ['', 'pre_30m', 'due_reached', 'due_today', 'overdue'];
+    }
+
+    // ==================== VALIDATION BLUEPRINTS ====================
+    function isValidAdminRole(data, docId) {
+      return data.keys().hasAll(['uid', 'granted_by', 'granted_at']) &&
+        data.keys().hasOnly(['uid', 'granted_by', 'granted_at']) &&
+        isValidId(data.uid) &&
+        data.uid == docId &&
+        isValidId(data.granted_by) &&
+        data.granted_at is timestamp;
+    }
+
+    function isValidTeam(data, docId) {
+      return data.keys().hasAll(['id', 'name', 'description', 'is_archived', 'created_at', 'updated_at']) &&
+        data.keys().hasOnly(['id', 'name', 'description', 'is_archived', 'created_at', 'updated_at']) &&
+        isValidId(data.id) &&
+        data.id == docId &&
+        data.name is string && data.name.size() >= 1 && data.name.size() <= 80 &&
+        data.description is string && data.description.size() <= 300 &&
+        data.is_archived is bool &&
+        data.created_at is timestamp &&
+        data.updated_at is timestamp;
+    }
+
+    function isValidPosition(data, docId) {
+      return data.keys().hasAll(['id', 'name', 'role_level', 'is_system', 'is_archived', 'created_at', 'updated_at']) &&
+        data.keys().hasOnly(['id', 'name', 'role_level', 'is_system', 'is_archived', 'created_at', 'updated_at']) &&
+        isValidId(data.id) &&
+        data.id == docId &&
+        data.name is string && data.name.size() >= 1 && data.name.size() <= 80 &&
+        isValidRole(data.role_level) &&
+        data.is_system is bool &&
+        data.is_archived is bool &&
+        data.created_at is timestamp &&
+        data.updated_at is timestamp;
+    }
+
+    function isValidStaffEntry(data, docId) {
+      return data.keys().hasAll([
+          'id', 'email', 'display_name', 'position_id', 'position_name',
+          'role', 'team_id', 'team_name', 'is_active', 'linked_uid', 'created_at', 'updated_at'
+        ]) &&
+        data.keys().hasOnly([
+          'id', 'email', 'display_name', 'position_id', 'position_name',
+          'role', 'team_id', 'team_name', 'is_active', 'linked_uid', 'created_at', 'updated_at'
+        ]) &&
+        isValidId(data.id) &&
+        data.id == docId &&
+        data.email is string && data.email.size() >= 3 && data.email.size() <= 254 &&
+        data.display_name is string && data.display_name.size() >= 1 && data.display_name.size() <= 120 &&
+        isValidId(data.position_id) &&
+        data.position_name is string && data.position_name.size() >= 1 && data.position_name.size() <= 80 &&
+        isValidRole(data.role) &&
+        isValidId(data.team_id) &&
+        data.team_name is string && data.team_name.size() >= 1 && data.team_name.size() <= 80 &&
+        data.is_active is bool &&
+        data.linked_uid is string && data.linked_uid.size() <= 128 &&
+        data.created_at is timestamp &&
+        data.updated_at is timestamp;
+    }
+
+    function isValidUserProfile(data, docId) {
+      return data.keys().hasAll([
+          'uid', 'staff_id', 'display_name', 'position_id', 'position_name',
+          'role', 'team_id', 'team_name', 'is_active', 'created_at', 'updated_at'
+        ]) &&
+        data.keys().hasOnly([
+          'uid', 'staff_id', 'display_name', 'position_id', 'position_name',
+          'role', 'team_id', 'team_name', 'is_active', 'created_at', 'updated_at'
+        ]) &&
+        isValidId(data.uid) &&
+        data.uid == docId &&
+        isValidId(data.staff_id) &&
+        data.display_name is string && data.display_name.size() >= 1 && data.display_name.size() <= 120 &&
+        isValidId(data.position_id) &&
+        data.position_name is string && data.position_name.size() >= 1 && data.position_name.size() <= 80 &&
+        isValidRole(data.role) &&
+        isValidId(data.team_id) &&
+        data.team_name is string && data.team_name.size() >= 1 && data.team_name.size() <= 80 &&
+        data.is_active is bool &&
+        data.created_at is timestamp &&
+        data.updated_at is timestamp;
+    }
+
+    function isValidUserPrivateInfo(data, docId) {
+      return data.keys().hasAll(['uid', 'email', 'updated_at']) &&
+        data.keys().hasOnly(['uid', 'email', 'updated_at']) &&
+        isValidId(data.uid) &&
+        data.uid == docId &&
+        data.email is string && data.email.size() >= 3 && data.email.size() <= 254 &&
+        data.updated_at is timestamp;
+    }
+
+    function isValidUserCaseAck(data, docId, userId) {
+      return data.keys().hasAll(['id', 'case_id', 'user_id', 'ack_stage', 'sla_due_at', 'ack_at']) &&
+        data.keys().hasOnly(['id', 'case_id', 'user_id', 'ack_stage', 'sla_due_at', 'ack_at']) &&
+        isValidId(data.id) &&
+        data.id == docId &&
+        isValidId(data.case_id) &&
+        isValidId(data.user_id) &&
+        data.user_id == userId &&
+        isValidAckStage(data.ack_stage) &&
+        data.sla_due_at is string && data.sla_due_at.size() >= 10 && data.sla_due_at.size() <= 64 &&
+        data.ack_at is timestamp;
+    }
+
+    function isValidCaseRecord(data, docId) {
+      return data.keys().hasAll([
+          'id', 'case_no', 'shop_id', 'issue_summary', 'details', 'status',
+          'team_id', 'team_name', 'assignee_id', 'assignee_name', 'created_by',
+          'sla_due_at', 'last_ack_at', 'last_ack_by', 'last_ack_by_name',
+          'last_ack_level', 'resolved_at', 'created_at', 'updated_at'
+        ]) &&
+        data.keys().hasOnly([
+          'id', 'case_no', 'shop_id', 'issue_summary', 'details', 'status',
+          'team_id', 'team_name', 'assignee_id', 'assignee_name', 'created_by',
+          'sla_due_at', 'last_ack_at', 'last_ack_by', 'last_ack_by_name',
+          'last_ack_level', 'resolved_at', 'created_at', 'updated_at'
+        ]) &&
+        isValidId(data.id) &&
+        data.id == docId &&
+        data.case_no is string && data.case_no.size() >= 1 && data.case_no.size() <= 64 &&
+        data.shop_id is string && data.shop_id.size() >= 1 && data.shop_id.size() <= 64 &&
+        data.issue_summary is string && data.issue_summary.size() >= 1 && data.issue_summary.size() <= 300 &&
+        data.details is string && data.details.size() <= 4000 &&
+        isValidCaseStatus(data.status) &&
+        isValidId(data.team_id) &&
+        data.team_name is string && data.team_name.size() >= 1 && data.team_name.size() <= 80 &&
+        isValidId(data.assignee_id) &&
+        data.assignee_name is string && data.assignee_name.size() >= 1 && data.assignee_name.size() <= 120 &&
+        isValidId(data.created_by) &&
+        data.sla_due_at is string && data.sla_due_at.size() >= 10 && data.sla_due_at.size() <= 64 &&
+        data.last_ack_at is string && data.last_ack_at.size() <= 64 &&
+        data.last_ack_by is string && data.last_ack_by.size() <= 128 &&
+        data.last_ack_by_name is string && data.last_ack_by_name.size() <= 120 &&
+        isValidAckLevel(data.last_ack_level) &&
+        data.resolved_at is string && data.resolved_at.size() <= 64 &&
+        data.created_at is timestamp &&
+        data.updated_at is timestamp;
+    }
+
+    function isValidCaseAcknowledgment(data, docId, caseId) {
+      return data.keys().hasAll(['id', 'case_id', 'user_id', 'user_name', 'ack_level', 'note', 'ack_at']) &&
+        data.keys().hasOnly(['id', 'case_id', 'user_id', 'user_name', 'ack_level', 'note', 'ack_at']) &&
+        isValidId(data.id) &&
+        data.id == docId &&
+        isValidId(data.case_id) &&
+        data.case_id == caseId &&
+        isValidId(data.user_id) &&
+        data.user_id == request.auth.uid &&
+        data.user_name is string && data.user_name.size() >= 1 && data.user_name.size() <= 120 &&
+        data.ack_level in ['pre_30m', 'due_reached', 'due_today', 'overdue'] &&
+        data.note is string && data.note.size() <= 500 &&
+        data.ack_at is timestamp;
+    }
+
+    // ==================== COLLECTION RULES ====================
+
+    // Connectivity test document
+    match /test/{docId} {
+      allow get: if isValidId(docId) && docId == 'connection';
+    }
+
+    // Admin role grants
+    match /admins/{userId} {
+      allow get: if isSignedIn() && isValidId(userId) && (userId == request.auth.uid || isAdmin());
+      allow list: if false;
+      allow create: if isSignedIn() && isValidId(userId) &&
+        isValidAdminRole(incoming(), userId) &&
+        incoming().granted_at == request.time &&
+        (
+          isAdmin() ||
+          (isBootstrappedAdmin() && userId == request.auth.uid && incoming().granted_by == request.auth.uid) ||
+          (
+            userId == request.auth.uid &&
+            incoming().granted_by == request.auth.uid &&
+            userDocExists() &&
+            exists(/databases/$(database)/documents/staff_directory/$(userDoc().staff_id)) &&
+            get(/databases/$(database)/documents/staff_directory/$(userDoc().staff_id)).data.email == request.auth.token.email &&
+            get(/databases/$(database)/documents/staff_directory/$(userDoc().staff_id)).data.is_active == true &&
+            get(/databases/$(database)/documents/staff_directory/$(userDoc().staff_id)).data.role == 'admin'
+          )
+        );
+      allow update: if false;
+      allow delete: if isAdmin() && isValidId(userId) && userId != request.auth.uid;
+    }
+
+    // Teams & departments
+    match /teams/{teamId} {
+      allow get: if isSignedIn() && isValidId(teamId);
+      allow list: if isSignedIn() && existing().is_archived == false;
+      allow create: if isAdmin() && isValidId(teamId) &&
+        isValidTeam(incoming(), teamId) &&
+        incoming().created_at == request.time &&
+        incoming().updated_at == request.time;
+      allow update: if isAdmin() && isValidId(teamId) &&
+        isValidTeam(incoming(), teamId) &&
+        incoming().id == existing().id &&
+        incoming().created_at == existing().created_at &&
+        incoming().updated_at == request.time &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['name', 'description', 'is_archived', 'updated_at']);
+      allow delete: if isAdmin() && isValidId(teamId);
+    }
+
+    // Positions & role levels
+    match /positions/{positionId} {
+      allow get: if isSignedIn() && isValidId(positionId);
+      allow list: if isSignedIn() && existing().is_archived == false;
+      allow create: if isAdmin() && isValidId(positionId) &&
+        isValidPosition(incoming(), positionId) &&
+        incoming().created_at == request.time &&
+        incoming().updated_at == request.time;
+      allow update: if isAdmin() && isValidId(positionId) &&
+        isValidPosition(incoming(), positionId) &&
+        incoming().id == existing().id &&
+        incoming().is_system == existing().is_system &&
+        incoming().created_at == existing().created_at &&
+        incoming().updated_at == request.time &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['name', 'role_level', 'is_archived', 'updated_at']);
+      allow delete: if isAdmin() && isValidId(positionId) && existing().is_system == false;
+    }
+
+    // Staff directory (contains PII email: strictly isolated)
+    match /staff_directory/{staffId} {
+      allow get: if isSignedIn() && isValidId(staffId) &&
+        (isAdmin() || existing().email == request.auth.token.email);
+      allow list: if isSignedIn() && isAdmin();
+      allow create: if isSignedIn() && isValidId(staffId) &&
+        isValidStaffEntry(incoming(), staffId) &&
+        incoming().created_at == request.time &&
+        incoming().updated_at == request.time &&
+        exists(/databases/$(database)/documents/teams/$(incoming().team_id)) &&
+        exists(/databases/$(database)/documents/positions/$(incoming().position_id)) &&
+        (
+          isAdmin() ||
+          (isBootstrappedAdmin() && incoming().email == request.auth.token.email && incoming().role == 'admin')
+        );
+      allow update: if isSignedIn() && isValidId(staffId) &&
+        isValidStaffEntry(incoming(), staffId) &&
+        incoming().id == existing().id &&
+        incoming().email == existing().email &&
+        incoming().created_at == existing().created_at &&
+        incoming().updated_at == request.time &&
+        (
+          (
+            isAdmin() &&
+            exists(/databases/$(database)/documents/teams/$(incoming().team_id)) &&
+            exists(/databases/$(database)/documents/positions/$(incoming().position_id)) &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'display_name', 'position_id', 'position_name', 'role',
+              'team_id', 'team_name', 'is_active', 'linked_uid', 'updated_at'
+            ])
+          ) ||
+          (
+            existing().email == request.auth.token.email &&
+            existing().is_active == true &&
+            incoming().linked_uid == request.auth.uid &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['linked_uid', 'updated_at'])
+          )
+        );
+      allow delete: if isAdmin() && isValidId(staffId);
+    }
+
+    // Operational user profiles (NO PII)
+    match /users/{userId} {
+      allow get: if isSignedIn() && isValidId(userId) && (userId == request.auth.uid || isActiveUser() || isAdmin());
+      allow list: if isSignedIn() && (existing().is_active == true || existing().uid == request.auth.uid);
+      allow create: if isSignedIn() && isValidId(userId) &&
+        isValidUserProfile(incoming(), userId) &&
+        incoming().created_at == request.time &&
+        incoming().updated_at == request.time &&
+        exists(/databases/$(database)/documents/teams/$(incoming().team_id)) &&
+        exists(/databases/$(database)/documents/positions/$(incoming().position_id)) &&
+        (
+          isAdmin() ||
+          (
+            userId == request.auth.uid &&
+            isBootstrappedAdmin() &&
+            incoming().role == 'admin'
+          ) ||
+          (
+            userId == request.auth.uid &&
+            exists(/databases/$(database)/documents/staff_directory/$(incoming().staff_id)) &&
+            get(/databases/$(database)/documents/staff_directory/$(incoming().staff_id)).data.email == request.auth.token.email &&
+            get(/databases/$(database)/documents/staff_directory/$(incoming().staff_id)).data.is_active == true &&
+            get(/databases/$(database)/documents/staff_directory/$(incoming().staff_id)).data.role == incoming().role &&
+            get(/databases/$(database)/documents/staff_directory/$(incoming().staff_id)).data.team_id == incoming().team_id &&
+            get(/databases/$(database)/documents/staff_directory/$(incoming().staff_id)).data.position_id == incoming().position_id
+          )
+        );
+      allow update: if isSignedIn() && isValidId(userId) &&
+        isValidUserProfile(incoming(), userId) &&
+        incoming().uid == existing().uid &&
+        incoming().staff_id == existing().staff_id &&
+        incoming().created_at == existing().created_at &&
+        incoming().updated_at == request.time &&
+        (
+          (
+            isAdmin() &&
+            exists(/databases/$(database)/documents/teams/$(incoming().team_id)) &&
+            exists(/databases/$(database)/documents/positions/$(incoming().position_id)) &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'display_name', 'position_id', 'position_name', 'role',
+              'team_id', 'team_name', 'is_active', 'updated_at'
+            ])
+          ) ||
+          (
+            userId == request.auth.uid &&
+            exists(/databases/$(database)/documents/staff_directory/$(existing().staff_id)) &&
+            get(/databases/$(database)/documents/staff_directory/$(existing().staff_id)).data.email == request.auth.token.email &&
+            get(/databases/$(database)/documents/staff_directory/$(existing().staff_id)).data.is_active == incoming().is_active &&
+            get(/databases/$(database)/documents/staff_directory/$(existing().staff_id)).data.role == incoming().role &&
+            get(/databases/$(database)/documents/staff_directory/$(existing().staff_id)).data.team_id == incoming().team_id &&
+            get(/databases/$(database)/documents/staff_directory/$(existing().staff_id)).data.position_id == incoming().position_id &&
+            get(/databases/$(database)/documents/staff_directory/$(existing().staff_id)).data.display_name == incoming().display_name &&
+            get(/databases/$(database)/documents/staff_directory/$(existing().staff_id)).data.position_name == incoming().position_name &&
+            get(/databases/$(database)/documents/staff_directory/$(existing().staff_id)).data.team_name == incoming().team_name &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'display_name', 'position_id', 'position_name', 'role',
+              'team_id', 'team_name', 'is_active', 'updated_at'
+            ])
+          )
+        );
+      allow delete: if isAdmin() && isValidId(userId) && userId != request.auth.uid;
+
+      // Isolated PII subcollection
+      match /private/{docId} {
+        allow get: if isSignedIn() && isValidId(userId) && isValidId(docId) && (userId == request.auth.uid || isAdmin());
+        allow list: if isSignedIn() && (userId == request.auth.uid || isAdmin());
+        allow create, update: if isSignedIn() && isValidId(userId) && isValidId(docId) &&
+          docId == 'info' &&
+          userId == request.auth.uid &&
+          isValidUserPrivateInfo(incoming(), userId) &&
+          incoming().email == request.auth.token.email &&
+          incoming().updated_at == request.time;
+        allow delete: if isAdmin() && isValidId(userId) && isValidId(docId);
+      }
+
+      // Per-user SLA popup acknowledgments
+      match /case_acks/{ackId} {
+        allow get: if isSignedIn() && isValidId(userId) && isValidId(ackId) && userId == request.auth.uid;
+        allow list: if isSignedIn() && existing().user_id == request.auth.uid;
+        allow create, update: if isActiveUser() && isValidId(userId) && isValidId(ackId) &&
+          userId == request.auth.uid &&
+          isValidUserCaseAck(incoming(), ackId, userId) &&
+          incoming().ack_at == request.time &&
+          exists(/databases/$(database)/documents/cases/$(incoming().case_id));
+        allow delete: if isSignedIn() && isValidId(userId) && isValidId(ackId) && userId == request.auth.uid;
+      }
+    }
+
+    // Support cases & SLA tracking
+    match /cases/{caseId} {
+      allow get: if isActiveUser() && isValidId(caseId) &&
+        (isAdmin() || isTL() || existing().team_id == userDoc().team_id);
+      allow list: if isActiveUser() &&
+        (isAdmin() || isTL() || existing().team_id == userDoc().team_id);
+      allow create: if isActiveUser() && isValidId(caseId) &&
+        isValidCaseRecord(incoming(), caseId) &&
+        incoming().created_by == request.auth.uid &&
+        incoming().assignee_id == request.auth.uid &&
+        incoming().team_id == userDoc().team_id &&
+        incoming().created_at == request.time &&
+        incoming().updated_at == request.time &&
+        exists(/databases/$(database)/documents/teams/$(incoming().team_id));
+      allow update: if isActiveUser() && isValidId(caseId) &&
+        isValidCaseRecord(incoming(), caseId) &&
+        incoming().id == existing().id &&
+        incoming().created_by == existing().created_by &&
+        incoming().created_at == existing().created_at &&
+        incoming().updated_at == request.time &&
+        (
+          // Action 1: Admin or TL full case update & reassignment
+          (
+            (isAdmin() || isTL()) &&
+            exists(/databases/$(database)/documents/teams/$(incoming().team_id)) &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'case_no', 'shop_id', 'issue_summary', 'details', 'status',
+              'team_id', 'team_name', 'assignee_id', 'assignee_name',
+              'sla_due_at', 'last_ack_at', 'last_ack_by', 'last_ack_by_name',
+              'last_ack_level', 'resolved_at', 'updated_at'
+            ])
+          ) ||
+          // Action 2: Same-team Agent editing case details/status/SLA without transferring team or assignee
+          (
+            existing().team_id == userDoc().team_id &&
+            incoming().team_id == existing().team_id &&
+            incoming().assignee_id == existing().assignee_id &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'case_no', 'shop_id', 'issue_summary', 'details', 'status',
+              'sla_due_at', 'last_ack_at', 'last_ack_by', 'last_ack_by_name',
+              'last_ack_level', 'resolved_at', 'updated_at'
+            ])
+          ) ||
+          // Action 3: Recording SLA acknowledgment metadata by an authorized viewer
+          (
+            (isAdmin() || isTL() || existing().team_id == userDoc().team_id) &&
+            incoming().last_ack_by == request.auth.uid &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'last_ack_at', 'last_ack_by', 'last_ack_by_name', 'last_ack_level', 'updated_at'
+            ])
+          )
+        );
+      allow delete: if (isAdmin() || isTL()) && isValidId(caseId);
+
+      // Case acknowledgment audit trail
+      match /acknowledgments/{ackId} {
+        allow get: if isActiveUser() && isValidId(caseId) && isValidId(ackId) &&
+          (isAdmin() || isTL() || get(/databases/$(database)/documents/cases/$(caseId)).data.team_id == userDoc().team_id);
+        allow list: if isActiveUser() && existing().case_id == caseId &&
+          (isAdmin() || isTL() || get(/databases/$(database)/documents/cases/$(caseId)).data.team_id == userDoc().team_id);
+        allow create: if isActiveUser() && isValidId(caseId) && isValidId(ackId) &&
+          isValidCaseAcknowledgment(incoming(), ackId, caseId) &&
+          incoming().ack_at == request.time &&
+          exists(/databases/$(database)/documents/cases/$(caseId)) &&
+          (isAdmin() || isTL() || get(/databases/$(database)/documents/cases/$(caseId)).data.team_id == userDoc().team_id);
+        allow update, delete: if false;
+      }
+    }
+  }
+}

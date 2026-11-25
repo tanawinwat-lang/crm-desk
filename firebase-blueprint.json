@@ -1,0 +1,517 @@
+{
+  "entities": {
+    "AdminRole": {
+      "title": "AdminRole",
+      "description": "Trusted administrator marker document keyed by Firebase Auth UID.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "Firebase Auth UID of the administrator",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "granted_by": {
+          "type": "string",
+          "description": "UID of the administrator who granted this role",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "granted_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when admin access was granted"
+        }
+      },
+      "required": ["uid", "granted_by", "granted_at"]
+    },
+    "Team": {
+      "title": "Team",
+      "description": "Department or support team (e.g., Line OA, Call, Email, Social Media).",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 300
+        },
+        "is_archived": {
+          "type": "boolean"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["id", "name", "description", "is_archived", "created_at", "updated_at"]
+    },
+    "Position": {
+      "title": "Position",
+      "description": "Job position mapped to an operational RBAC role level.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "role_level": {
+          "type": "string",
+          "enum": ["admin", "tl", "agent"]
+        },
+        "is_system": {
+          "type": "boolean"
+        },
+        "is_archived": {
+          "type": "boolean"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["id", "name", "role_level", "is_system", "is_archived", "created_at", "updated_at"]
+    },
+    "StaffDirectoryEntry": {
+      "title": "StaffDirectoryEntry",
+      "description": "Admin-managed staff roster keyed by SHA-256 hash of lowercase Google email.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "minLength": 3,
+          "maxLength": 254
+        },
+        "display_name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "position_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "position_name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "role": {
+          "type": "string",
+          "enum": ["admin", "tl", "agent"]
+        },
+        "team_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "team_name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "is_active": {
+          "type": "boolean"
+        },
+        "linked_uid": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "email",
+        "display_name",
+        "position_id",
+        "position_name",
+        "role",
+        "team_id",
+        "team_name",
+        "is_active",
+        "linked_uid",
+        "created_at",
+        "updated_at"
+      ]
+    },
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Operational user profile without PII email.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "staff_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "display_name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "position_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "position_name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "role": {
+          "type": "string",
+          "enum": ["admin", "tl", "agent"]
+        },
+        "team_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "team_name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "is_active": {
+          "type": "boolean"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "uid",
+        "staff_id",
+        "display_name",
+        "position_id",
+        "position_name",
+        "role",
+        "team_id",
+        "team_name",
+        "is_active",
+        "created_at",
+        "updated_at"
+      ]
+    },
+    "UserPrivateInfo": {
+      "title": "UserPrivateInfo",
+      "description": "Isolated PII email record readable only by owner or Admin.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "minLength": 3,
+          "maxLength": 254
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["uid", "email", "updated_at"]
+    },
+    "UserCaseAck": {
+      "title": "UserCaseAck",
+      "description": "Per-user SLA popup acknowledgment state for pre_30m and due_reached stages.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "case_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "user_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "ack_stage": {
+          "type": "string",
+          "enum": ["pre_30m", "due_reached"]
+        },
+        "sla_due_at": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 64
+        },
+        "ack_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["id", "case_id", "user_id", "ack_stage", "sla_due_at", "ack_at"]
+    },
+    "CaseRecord": {
+      "title": "CaseRecord",
+      "description": "Support case item with SLA deadline, team scope, and status workflow.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "case_no": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "shop_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "issue_summary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300
+        },
+        "details": {
+          "type": "string",
+          "maxLength": 4000
+        },
+        "status": {
+          "type": "string",
+          "enum": ["todo", "in_progress", "done"]
+        },
+        "team_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "team_name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "assignee_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "assignee_name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "created_by": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "sla_due_at": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 64
+        },
+        "last_ack_at": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "last_ack_by": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "last_ack_by_name": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "last_ack_level": {
+          "type": "string",
+          "enum": ["", "pre_30m", "due_reached", "due_today", "overdue"]
+        },
+        "resolved_at": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "case_no",
+        "shop_id",
+        "issue_summary",
+        "details",
+        "status",
+        "team_id",
+        "team_name",
+        "assignee_id",
+        "assignee_name",
+        "created_by",
+        "sla_due_at",
+        "last_ack_at",
+        "last_ack_by",
+        "last_ack_by_name",
+        "last_ack_level",
+        "resolved_at",
+        "created_at",
+        "updated_at"
+      ]
+    },
+    "CaseAcknowledgment": {
+      "title": "CaseAcknowledgment",
+      "description": "Audit trail entry when a user acknowledges an SLA alert for a case.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "case_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "user_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "user_name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "ack_level": {
+          "type": "string",
+          "enum": ["pre_30m", "due_reached", "due_today", "overdue"]
+        },
+        "note": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "ack_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["id", "case_id", "user_id", "user_name", "ack_level", "note", "ack_at"]
+    }
+  },
+  "firestore": {
+    "/admins/{userId}": {
+      "schema": { "$ref": "#/entities/AdminRole" },
+      "description": "Admin role grant documents."
+    },
+    "/teams/{teamId}": {
+      "schema": { "$ref": "#/entities/Team" },
+      "description": "Operational teams and departments."
+    },
+    "/positions/{positionId}": {
+      "schema": { "$ref": "#/entities/Position" },
+      "description": "Staff job positions and role levels."
+    },
+    "/staff_directory/{staffId}": {
+      "schema": { "$ref": "#/entities/StaffDirectoryEntry" },
+      "description": "Admin-managed staff directory with email-based authorization."
+    },
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Operational user profiles without PII."
+    },
+    "/users/{userId}/private/{docId}": {
+      "schema": { "$ref": "#/entities/UserPrivateInfo" },
+      "description": "Isolated PII email records per user."
+    },
+    "/users/{userId}/case_acks/{ackId}": {
+      "schema": { "$ref": "#/entities/UserCaseAck" },
+      "description": "Per-user SLA alert acknowledgments."
+    },
+    "/cases/{caseId}": {
+      "schema": { "$ref": "#/entities/CaseRecord" },
+      "description": "Customer support cases and SLA deadlines."
+    },
+    "/cases/{caseId}/acknowledgments/{ackId}": {
+      "schema": { "$ref": "#/entities/CaseAcknowledgment" },
+      "description": "Acknowledgment audit history per case."
+    }
+  }
+}

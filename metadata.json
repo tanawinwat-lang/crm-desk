@@ -1,0 +1,8 @@
+{
+  "name": "CaseFlow SLA",
+  "description": "ระบบบริหารจัดการเคส To-Do List และติดตาม SLA แบบเรียลไทม์ พร้อมระบบสิทธิ์ตามตำแหน่งและแผนก",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
